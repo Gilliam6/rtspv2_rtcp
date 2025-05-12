@@ -90,12 +90,15 @@ type RTSPClient struct {
 	PreVideoTS          int64
 	PreSequenceNumber   int
 	FPS                 int
+	Offset              time.Duration
 	WaitCodec           bool
 	chTMP               int
 	timestamp           int64
 	sequenceNumber      int
 	end                 int
 	offset              int
+	videoSync           *ClockSync // clockRate = 90000
+	audioSync           *ClockSync // clockRate = float64(client.AudioTimeScale)
 }
 
 type RTSPClientOptions struct {
@@ -121,6 +124,12 @@ func Dial(options RTSPClientOptions) (*RTSPClient, error) {
 		audioIDX:            -2,
 		options:             options,
 		AudioTimeScale:      8000,
+		audioSync: &ClockSync{
+			clockRate: 8000,
+		},
+		videoSync: &ClockSync{
+			clockRate: 90000,
+		},
 	}
 	client.headers["User-Agent"] = "Lavf58.76.100"
 	err := client.parseURL(html.UnescapeString(client.options.URL))
@@ -233,6 +242,7 @@ func Dial(options RTSPClientOptions) (*RTSPClient, error) {
 				client.audioCodec = CodecData.Type()
 				if i2.TimeScale != 0 {
 					client.AudioTimeScale = int64(i2.TimeScale)
+					client.audioSync.clockRate = float64(i2.TimeScale)
 				}
 			}
 		}
@@ -396,6 +406,18 @@ func (client *RTSPClient) ControlTrack(track string) string {
 	}
 	return client.control + track
 }
+
+//func (client *RTSPClient) GetOffset() time.Duration {
+//	client.mu.RLock()
+//	defer client.mu.RUnlock()
+//	return client.Offset
+//}
+//
+//func (client *RTSPClient) SetOffset(offset time.Duration) {
+//	client.mu.Lock()
+//	defer client.mu.Unlock()
+//	client.Offset = offset
+//}
 
 func (client *RTSPClient) startStream() {
 	defer func() {
