@@ -6,6 +6,7 @@ import (
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/deepch/vdk/codec/h265parser"
+	"github.com/pion/rtcp"
 	"math"
 	"time"
 )
@@ -26,6 +27,13 @@ func (client *RTSPClient) RTPDemuxer(payloadRAW *[]byte) ([]*av.Packet, bool) {
 
 	if isRTCPPacket(content) {
 		client.Println("skipping RTCP packet")
+		var rtcp rtcp.Packet
+		err := rtcp.Unmarshal(content[4:])
+		if err != nil {
+			client.Println("unmarshal rtcp packet error:", err)
+			return nil, false
+		}
+		client.Println("rtcp packet: ", rtcp)
 		return nil, false
 	}
 
